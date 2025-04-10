@@ -1,6 +1,6 @@
 {
   "name": "@pomgui/json-compress",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "Small footpring json compacter",
   "main": "dist/index.js",
   "scripts": {
