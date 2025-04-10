@@ -3,7 +3,7 @@ const {testData} = require('./data');
 
 describe(`encode`, () => {
 
-    test.skip(`simple array`, () => {
+    test(`simple array`, () => {
         expect(jsonCompress.encode([{
             id: 1,
             name: 'name1'
@@ -19,7 +19,7 @@ describe(`encode`, () => {
         });
     });
 
-    test.skip(`complex`, () => {
+    test(`complex`, () => {
         const _in = testData[0].in;
         const out = jsonCompress.encode(_in);
         const newin = jsonCompress.decode(out);

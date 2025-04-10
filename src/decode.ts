@@ -1,8 +1,10 @@
+import { RADIX } from "./encode";
+
 export function decode(value: any): any {
     if (!value?.d)
         return value;
     const map = value.$;
-    const dateMin = value.$$;
+    const dateMin = parseInt(value.$$, RADIX);
     return dodecode(value.d);
 
     function dodecode(value: any): any {
@@ -31,8 +33,8 @@ export function decode(value: any): any {
         return value;
     }
     function getKey(key: string): string {
-        if (key[0] == '§' && key[1] == 'D')
-            return new Date(dateMin + Number(key.substring(2))).toISOString();
-        return key[0] == '§' ? map[Number(key.substring(1))] : key;
+        if (key[0] == '§' && key[1] == '§')
+            return new Date(dateMin + parseInt(key.substring(2), RADIX)).toISOString();
+        return key[0] == '§' ? map[parseInt(key.substring(1), RADIX)] : key;
     }
 }

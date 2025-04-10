@@ -1,13 +1,16 @@
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
+export const RADIX = 36;
+
 export function encode(value: any): any {
     const newval = getpivot(value);
-    const valueMap = new Map<string | boolean, number>();
-    const dateMap = new Map<string, number>();
-    let dateMin: number | undefined = undefined;
+    const valueMap = new Map<string | boolean, string>();
+    const dateMap = new Map<string, string | number>();
+    let dateMin: number | string | undefined = undefined;
 
     createMap(newval);
     const ret = {} as any;
-    if (dateMin) ret.$$ = dateMin;
+    if (dateMin) ret.$$ = (dateMin as number).toString(RADIX);
     if (valueMap.size > 0) {
         ret.$ = Array.from(valueMap.keys());
         ret.d = replaceKeyValue(newval);
@@ -42,19 +45,17 @@ export function encode(value: any): any {
 
         // Cleanup the value map
         Array.from(map.entries())
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            .filter(([key, val]) => val.num > 1)
+            .filter(entry => entry[1].num > 1)
             .sort((a, b) => b[1].num * String(b[0]).length - a[1].num * String(a[0]).length)
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            .filter(([key, val], i) => String(key).length > i.toString().length + 1)
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            .forEach(([key, val], i) => valueMap.set(key, i));
+            .map(([key, val]) => key)
+            .filter((key, i) => String(key).length > i.toString(RADIX).length + 1)
+            .forEach((key, i) => valueMap.set(key, i.toString(RADIX)));
 
         // Use the date map, only if there are more than one date
         if (dateMap.size > 1) {
-            dateMin = Math.min(...Array.from(dateMap.values()));
+            dateMin = Math.min(...Array.from(dateMap.values()) as number[]);
             for (const k of dateMap.keys())
-                dateMap.set(k, dateMap.get(k)! - dateMin);
+                dateMap.set(k, ((dateMap.get(k)! as number) - dateMin).toString(RADIX));
         }
     }
 
@@ -79,7 +80,7 @@ export function encode(value: any): any {
         if (type === 'string') {
             const d = dateMap.get(value);
             if (d !== undefined)
-                return '§D' + d;
+                return '§§' + d;
         }
 
         return value;
