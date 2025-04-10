@@ -3,19 +3,19 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
 export const RADIX = 36;
 
 export function encode(value: any): any {
-    const newval = getpivot(value);
+    const pivot = getpivot(value);
     const valueMap = new Map<string | boolean | null, string>();
     const dateMap = new Map<string, string | number>();
-    let dateMin: number | string | undefined = undefined;
+    let dateMin: number | string = 0;
 
-    createMap(newval);
+    createMap(pivot);
     const ret = {} as any;
-    if (dateMin) ret.$$ = (dateMin as number).toString(RADIX);
-    if (valueMap.size > 0) {
-        ret.$ = Array.from(valueMap.keys());
-        ret.d = replaceKeyValue(newval);
+    if (valueMap.size > 0 || dateMap.size > 1) {
+        if (dateMap.size > 1) ret.$$ = (dateMin as number).toString(RADIX);
+        if (valueMap.size > 0) ret.$ = Array.from(valueMap.keys());
+        ret.d = replaceKeyValue(pivot);
     } else
-        ret.d = newval;
+        ret.d = pivot;
     return ret;
 
     function createMap(value: any): void {
@@ -36,7 +36,10 @@ export function encode(value: any): any {
             if (typeof val == 'string' && ISO_DATE.test(val)) {
                 // Is an ISO Date
                 const date = new Date(val);
-                dateMap.set(val, date.getTime());
+                const t = date.getTime();
+                if (!dateMin || (dateMin as number) > t)
+                    dateMin = t;
+                dateMap.set(val, t);
                 return val;
             }
             add(val);
@@ -53,16 +56,16 @@ export function encode(value: any): any {
 
         // Use the date map, only if there are more than one date
         if (dateMap.size > 1) {
-            dateMin = Math.min(...Array.from(dateMap.values()) as number[]);
             for (const k of dateMap.keys())
-                dateMap.set(k, ((dateMap.get(k)! as number) - dateMin).toString(RADIX));
+                dateMap.set(k, ((dateMap.get(k)! as number) - (dateMin as number)).toString(RADIX));
         }
     }
 
     function replaceKeyValue(value: any): any {
+        const type = typeof value;
         if (Array.isArray(value)) {
             return value.map(replaceKeyValue);
-        } else if (typeof value === 'object' && value !== null) {
+        } else if (type == 'object' && value !== null) {
             const newValue: any = {};
             for (const [key, val] of Object.entries(value)) {
                 const k = valueMap.get(key);
@@ -71,7 +74,6 @@ export function encode(value: any): any {
             }
             return newValue;
         }
-        const type = typeof value;
         if (['string', 'boolean'].includes(type)) {
             const k = valueMap.get(value);
             if (k !== undefined)
@@ -82,7 +84,6 @@ export function encode(value: any): any {
             if (d !== undefined)
                 return '§§' + d;
         }
-
         return value;
     }
 

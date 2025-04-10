@@ -20,7 +20,7 @@ describe(`encode`, () => {
     });
 
     test(`complex`, () => {
-        const _in = testData[0].in;
+        const _in = testData[1].in;
         const out = jsonCompress.encode(_in);
         const newin = jsonCompress.decode(out);
         expect(newin).toMatchObject(_in);
