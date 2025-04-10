@@ -13,29 +13,30 @@ export function encode(value: any): any {
             d: newval
         } as any;
 
-    function createMap(value: any): Map<string, number> {
-        const map = new Map<string, { idx: number; num: number }>();
-        const add = (key: string) => {
-            if (key.length > 3) {
+    function createMap(value: any): Map<string | null | boolean, number> {
+        const map = new Map<string | null | boolean, { type: string, idx: number; num: number }>();
+        const add = (key: string | boolean | string) => {
+            const type = key === null ? 'null' : typeof key;
+            if (!['string', 'boolean', 'null'].includes(type)) return;
+            if (type != 'string' || (key as string).length > 3) {
                 let k = map.get(key);
                 if (!k)
-                    map.set(key, k = { idx: map.size, num: 0 });
+                    map.set(key, k = { type, idx: map.size, num: 0 });
                 k.num++;
             }
         };
 
         JSON.stringify(value, (key, val) => {
             add(key);
-            if (typeof val == 'string')
-                add(val);
+            add(val);
             return val;
         });
         return new Map(Array.from(map.entries())
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             .filter(([key, val]) => val.num > 1)
-            .sort((a, b) => b[1].num * b[0].length - a[1].num * a[0].length)
+            .sort((a, b) => b[1].num * String(b[0]).length - a[1].num * String(a[0]).length)
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            .filter(([key, val], i) => key.length > i.toString().length + 1)
+            .filter(([key, val], i) => String(key).length > i.toString().length + 1)
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             .map(([key, val], i) => [key, i])
         );
