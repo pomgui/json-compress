@@ -4,7 +4,7 @@
   "description": "Small footpring json compacter",
   "main": "dist/index.js",
   "scripts": {
-    "prepare": "tsup src/index.ts --format cjs --dts --out-dir dist --sourcemap --minify",
+    "prepare": "tsup src/index.ts --format cjs --dts --out-dir dist --clean --sourcemap --minify",
     "test": "jest",
     "test:cover": "jest --coverage",
     "preversion": "npm run prepare",
