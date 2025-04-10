@@ -4,7 +4,7 @@ export const RADIX = 36;
 
 export function encode(value: any): any {
     const newval = getpivot(value);
-    const valueMap = new Map<string | boolean, string>();
+    const valueMap = new Map<string | boolean | null, string>();
     const dateMap = new Map<string, string | number>();
     let dateMin: number | string | undefined = undefined;
 
@@ -21,9 +21,9 @@ export function encode(value: any): any {
     function createMap(value: any): void {
         const map = new Map<string | boolean, { type: string, idx: number; num: number }>();
         const add = (key: string | boolean) => {
-            const type = typeof key;
+            const type = typeof key; // null is not considered, because it's 4 chars and the minimum compressed string is "§0" (4chars)
             if (!['string', 'boolean'].includes(type)) return;
-            if (type != 'string' || (key as string).length > 3) {
+            if (type != 'string' || (key as string).length > 2) {
                 let k = map.get(key);
                 if (!k)
                     map.set(key, k = { type, idx: map.size, num: 0 });
