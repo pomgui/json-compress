@@ -5,6 +5,7 @@ export function decode(value: any): any {
         return value;
     const map = value.$;
     const dateMin = parseInt(value.$$, RADIX);
+
     return dodecode(value.d);
 
     function dodecode(value: any): any {
@@ -12,11 +13,12 @@ export function decode(value: any): any {
             if (value.$ !== undefined) {
                 const keys = Object.keys(value).filter(key => key !== '$');
                 const result = [];
+                keys.forEach(key => value[key] = dodecode(value[key]));
                 const len = value[keys[0]].length;
                 for (let i = 0; i < len; i++) {
                     const item: any = {};
                     for (const key of keys) {
-                        item[getKey(key)] = dodecode(value[key][i]);
+                        item[getKey(key)] = value[key][i];
                     }
                     result.push(item);
                 }
@@ -27,7 +29,14 @@ export function decode(value: any): any {
                     );
             }
         } else if (Array.isArray(value)) {
-            return value.map(dodecode);
+            if (value[0] === '§') {
+                return value.slice(1).map(e => {
+                    if (typeof e == 'number')
+                        return map[e];
+                    return getKey(e);
+                });
+            } else
+                return value.map(dodecode);
         } else if (typeof value === 'string')
             value = getKey(value);
         return value;

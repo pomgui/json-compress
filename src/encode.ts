@@ -21,8 +21,8 @@ export function encode(value: any): any {
     function createMap(value: any): void {
         const map = new Map<string | boolean, { type: string, idx: number; num: number }>();
         const add = (val: string | boolean, isKey: boolean) => {
-            const type = typeof val; // null is not considered, because it's 4 chars and the minimum compressed string is "§0" (4chars)
-            if (!['string', 'boolean'].includes(type)) return;
+            const type = val === null ? 'null' : typeof val;
+            if (!['string', 'boolean', 'null'].includes(type)) return;
             if (isKey && type == 'string' && /^\d+$/.test(val as string)) return;
             if (type != 'string' || (val as string).length > 2) {
                 let k = map.get(val);
@@ -63,9 +63,24 @@ export function encode(value: any): any {
     }
 
     function replaceKeyValue(value: any): any {
-        const type = typeof value;
+        const type = value === null ? 'null' : typeof value;
         if (Array.isArray(value)) {
-            return value.map(replaceKeyValue);
+            const arr = value.map(replaceKeyValue);
+            if (arr.every(e => typeof e == 'string')) {
+                let c = 0;
+                const arrCopy = arr.map(e => {
+                    if (e[0] == '§' && e[1] != '§') {
+                        e = parseInt(e.substring(1), RADIX) as any;
+                        c++;
+                    }
+                    return e;
+                })
+                if (c > 1) {
+                    arrCopy.unshift('§');
+                    return arrCopy;
+                }
+            }
+            return arr;
         } else if (type == 'object' && value !== null) {
             const newValue: any = {};
             for (const [key, val] of Object.entries(value)) {
@@ -75,7 +90,7 @@ export function encode(value: any): any {
             }
             return newValue;
         }
-        if (['string', 'boolean'].includes(type)) {
+        if (['string', 'boolean', 'null'].includes(type)) {
             const k = valueMap.get(value);
             if (k !== undefined)
                 return '§' + k;
