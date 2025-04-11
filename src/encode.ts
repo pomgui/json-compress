@@ -20,19 +20,20 @@ export function encode(value: any): any {
 
     function createMap(value: any): void {
         const map = new Map<string | boolean, { type: string, idx: number; num: number }>();
-        const add = (key: string | boolean) => {
-            const type = typeof key; // null is not considered, because it's 4 chars and the minimum compressed string is "§0" (4chars)
+        const add = (val: string | boolean, isKey: boolean) => {
+            const type = typeof val; // null is not considered, because it's 4 chars and the minimum compressed string is "§0" (4chars)
             if (!['string', 'boolean'].includes(type)) return;
-            if (type != 'string' || (key as string).length > 2) {
-                let k = map.get(key);
+            if (isKey && type == 'string' && /^\d+$/.test(val as string)) return;
+            if (type != 'string' || (val as string).length > 2) {
+                let k = map.get(val);
                 if (!k)
-                    map.set(key, k = { type, idx: map.size, num: 0 });
+                    map.set(val, k = { type, idx: map.size, num: 0 });
                 k.num++;
             }
         };
 
         JSON.stringify(value, (key, val) => {
-            add(key);
+            add(key, true);
             if (typeof val == 'string' && ISO_DATE.test(val)) {
                 // Is an ISO Date
                 const date = new Date(val);
@@ -42,7 +43,7 @@ export function encode(value: any): any {
                 dateMap.set(val, t);
                 return val;
             }
-            add(val);
+            add(val, false);
             return val;
         });
 
