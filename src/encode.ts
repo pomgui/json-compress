@@ -66,10 +66,10 @@ export function encode(value: any): any {
         const type = value === null ? 'null' : typeof value;
         if (Array.isArray(value)) {
             const arr = value.map(replaceKeyValue);
-            if (arr.every(e => typeof e == 'string')) {
+            if (!arr.some(e => typeof e == 'number')) {
                 let c = 0;
                 const arrCopy = arr.map(e => {
-                    if (e[0] == '§' && e[1] != '§') {
+                    if (typeof e == 'string' && e[0] == '§' && e[1] != '§') {
                         e = parseInt(e.substring(1), RADIX) as any;
                         c++;
                     }
