@@ -35,7 +35,7 @@ export function decode(value: any): any {
                         return map[e];
                     if (typeof e == 'string')
                         return getKey(e);
-                    return e;
+                    return dodecode(e);
                 });
             } else
                 return value.map(dodecode);

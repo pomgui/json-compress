@@ -10,8 +10,8 @@ export function encode(value: any): any {
 
     createMap(pivot);
     const ret = {} as any;
-    if (valueMap.size > 0 || dateMap.size > 1) {
-        if (dateMap.size > 1) ret.$$ = (dateMin as number).toString(RADIX);
+    if (valueMap.size > 0 || dateMap.size > 0) {
+        if (dateMap.size > 0) ret.$$ = (dateMin as number).toString(RADIX);
         if (valueMap.size > 0) ret.$ = Array.from(valueMap.keys());
         ret.d = replaceKeyValue(pivot);
     } else
@@ -56,7 +56,7 @@ export function encode(value: any): any {
             .forEach((key, i) => valueMap.set(key, i.toString(RADIX)));
 
         // Use the date map, only if there are more than one date
-        if (dateMap.size > 1) {
+        if (dateMap.size > 0) {
             for (const k of dateMap.keys())
                 dateMap.set(k, ((dateMap.get(k)! as number) - (dateMin as number)).toString(RADIX));
         }
