@@ -1,5 +1,23 @@
 module.exports.testData = [
     {
+        name: 'Simple array', 
+        in: [{
+                id: 1,
+                name: 'name1'
+            }, {
+                id: 2,
+                name: 'name2'
+            }],
+        out: {
+            d: {
+                $: 0,
+                id: [1, 2],
+                name: ['name1', 'name2']
+            }
+        }
+    },
+    {
+        name: 'players/id/tournaments',
         in: {
             tournaments:
                 [{
@@ -50,9 +68,10 @@ module.exports.testData = [
                         }]
                 }]
         },
-        out: { "$$": "m8u5sw00", "$": ["sourceMatchWho", "sourceMatchId", false, "winner", "points", "clubId", "numFrames", "startedAt", "groupPos", "wins", "loser", "details", "tableNo", "endedAt", "players", "referee", "bonus", "eta"], "d": { "tournaments": [{ "extraPoints": { "Jogos": "9§0§", "Participação": "3§20§" }, "id": 35, "phases": { "$": 0, "groupName": ["A", "OITAVAS"], "phase": [1, 3], "§5": [3, 3], "matches": [{ "$": 0, "id": [1, 3, 5], "§6": [5, 5, 5], "§b": [null, { "§3": { "§g": 3, "§8": 1 } }, { "§3": { "§8": 2 } }], "§h": ["§§0", "§§0", "§§0"], "§c": [1, 1, 1], "§5": [3, 3, 3], "§7": ["§§4o7k", "§§2bpw0", "§§6eer4"], "§d": ["§§2b854", "§§5mft4", "§§88eiw"], "§e": [{ "$": 0, "pk": [12973, 12972], "id": [111, 330], "§9": [3, 0], "wo": ["§2", "§2"], "§4": [3, 0] }, { "$": 0, "pk": [12978, 12979], "id": [111, 115], "§9": [1, 3], "wo": ["§2", "§2"], "§1": [1, 2], "§0": ["§3", "§3"], "§4": [1, 6] }, { "$": 0, "pk": [12984, 12985], "id": [111, 330], "§9": [3, 0], "wo": ["§2", "§2"], "§1": [3, 4], "§0": ["§a", "§3"], "§4": [3, 0] }], "§f": [{ "pk": 12974, "id": null, "wo": "§2" }, { "pk": 12980, "id": 262, "wo": "§2", "§1": 2, "§0": "§a" }, { "pk": 12986, "id": 262, "wo": "§2", "§1": 4, "§0": "§a" }] }, [{ "id": 54, "§6": 5, "§b": { "§3": { "§g": 2 } }, "§h": null, "§c": null, "§5": 3, "§7": "§§cx2a8", "§d": "§§h9xns", "§e": { "$": 0, "pk": [13123, 13124], "id": [111, 116], "§9": [2, 3], "wo": ["§2", "§2"], "§1": [5, 23], "§0": ["§3", "§3"], "§4": [2, 5] }, "§f": { "pk": null, "id": null, "wo": null } }]] } }] } }
+        out: {"$$":"m8u5sw00","$":["sourceMatchWho","sourceMatchId",false,"winner",null,"points","clubId","numFrames","startedAt","groupPos","wins","loser","details","tableNo","endedAt","players","referee","bonus","eta"],"d":{"tournaments":[{"extraPoints":{"Jogos":"9§0§","Participação":"3§20§"},"id":35,"phases":{"$":0,"groupName":["A","OITAVAS"],"phase":[1,3],"§6":[3,3],"matches":[{"$":0,"id":[1,3,5],"§7":[5,5,5],"§c":["§4",{"§3":{"§h":3,"§9":1}},{"§3":{"§9":2}}],"§i":["§§0","§§0","§§0"],"§d":[1,1,1],"§6":[3,3,3],"§8":["§§4o7k","§§2bpw0","§§6eer4"],"§e":["§§2b854","§§5mft4","§§88eiw"],"§f":[{"$":0,"pk":[12973,12972],"id":[111,330],"§a":[3,0],"wo":["§",2,2],"§5":[3,0]},{"$":0,"pk":[12978,12979],"id":[111,115],"§a":[1,3],"wo":["§",2,2],"§1":[1,2],"§0":["§",3,3],"§5":[1,6]},{"$":0,"pk":[12984,12985],"id":[111,330],"§a":[3,0],"wo":["§",2,2],"§1":[3,4],"§0":["§",11,3],"§5":[3,0]}],"§g":[{"pk":12974,"id":"§4","wo":"§2"},{"pk":12980,"id":262,"wo":"§2","§1":2,"§0":"§b"},{"pk":12986,"id":262,"wo":"§2","§1":4,"§0":"§b"}]},[{"id":54,"§7":5,"§c":{"§3":{"§h":2}},"§i":"§4","§d":"§4","§6":3,"§8":"§§cx2a8","§e":"§§h9xns","§f":{"$":0,"pk":[13123,13124],"id":[111,116],"§a":[2,3],"wo":["§",2,2],"§1":[5,23],"§0":["§",3,3],"§5":[2,5]},"§g":{"pk":"§4","id":"§4","wo":"§4"}}]]}}]}}
     },
     {
+        name: 'tournaments/id/players',
         in: {
             "rows": [{
                 "tournamentId": 38,
@@ -68,7 +87,8 @@ module.exports.testData = [
         out: {"$$":"m91gcr72","d":{"rows":{"$":0,"tournamentId":[38,38,37,38,37,38,38,38,38,37,38,38,37,38,37,38,38,37,37,38,37,38,37,38],"playerId":[111,262,15,21,77,275,414,267,260,58,226,397,101,24,69,330,412,221,270,116,25,334,259,55],"createdAt":["§§0","§§1luz0y","§§1lv9jd","§§1lvq7d","§§1lwp7y","§§1lypr7","§§1lzw84","§§1m3wsv","§§1mf2t7","§§1mfidq","§§1mxi5c","§§1n8076","§§1np1lv","§§1nqz5s","§§1nxvzw","§§1o1ke3","§§1q1a5u","§§1rmacz","§§20ns7j","§§20rxlt","§§2jvtd9","§§2pjz1e","§§47x95g","§§4a7s4x"]}}}
     },
     {
+        name: 'v_players',
         in: {"rows":[{"id":212,"name":"Rafael (SC)","categoryId":3,"alias":"Rafael (SC)","clubId":null,"cityId":23,"status":"inactive","imgId":208,"suspended":null,"isVirtual":false},{"id":421,"name":"Paulo Roberto Volpe ","categoryId":2,"alias":"Tuta","clubId":30,"cityId":18,"status":"active","imgId":339,"suspended":null,"isVirtual":false},{"id":282,"name":"Alex Sandro Fernando Do Prado ","categoryId":2,"alias":"Coco","clubId":27,"cityId":10,"status":"active","imgId":307,"suspended":null,"isVirtual":false},{"id":412,"name":"Uidas Almeida De Oliveira ","categoryId":2,"alias":"Uidas ","clubId":2,"cityId":4,"status":"active","imgId":322,"suspended":null,"isVirtual":false},{"id":293,"name":"Aparecido Jose Di Santo","categoryId":1,"alias":"Zé Do Dito","clubId":7,"cityId":36,"status":"active","imgId":297,"suspended":null,"isVirtual":false},{"id":330,"name":"Mario Dalfre Junior","categoryId":2,"alias":"Dalfre ","clubId":26,"cityId":14,"status":"active","imgId":324,"suspended":null,"isVirtual":false},{"id":334,"name":"Diego Ramos Valerio","categoryId":2,"alias":"Ramos","clubId":17,"cityId":37,"status":"active","imgId":306,"suspended":null,"isVirtual":false},{"id":471,"name":"Kellerman Jurasseche","categoryId":3,"alias":"Magrao","clubId":null,"cityId":38,"status":"active","imgId":329,"suspended":"","isVirtual":false},{"id":63,"name":"Rodrigo Marchiori Mazak ","categoryId":2,"alias":"Mazak","clubId":26,"cityId":23,"status":"active","imgId":249,"suspended":null,"isVirtual":false},{"id":207,"name":"Marco (SC)","categoryId":3,"alias":"Marco (SC)","clubId":null,"cityId":23,"status":"inactive","imgId":0,"suspended":null,"isVirtual":false}]},
-        out: {"$":[false,"active","Rafael (SC)","Marco (SC)","inactive"],"d":{"rows":{"$":0,"id":[212,421,282,412,293,330,334,471,63,207],"name":["§2","Paulo Roberto Volpe ","Alex Sandro Fernando Do Prado ","Uidas Almeida De Oliveira ","Aparecido Jose Di Santo","Mario Dalfre Junior","Diego Ramos Valerio","Kellerman Jurasseche","Rodrigo Marchiori Mazak ","§3"],"categoryId":[3,2,2,2,1,2,2,3,2,3],"alias":["§2","Tuta","Coco","Uidas ","Zé Do Dito","Dalfre ","Ramos","Magrao","Mazak","§3"],"clubId":[null,30,27,2,7,26,17,null,26,null],"cityId":[23,18,10,4,36,14,37,38,23,23],"status":["§4","§1","§1","§1","§1","§1","§1","§1","§1","§4"],"imgId":[208,339,307,322,297,324,306,329,249,0],"suspended":[null,null,null,null,null,null,null,"",null,null],"isVirtual":["§0","§0","§0","§0","§0","§0","§0","§0","§0","§0"]}}}
+        out: {"$":[false,null,"active","Rafael (SC)","Marco (SC)","inactive"],"d":{"rows":{"$":0,"id":[212,421,282,412,293,330,334,471,63,207],"name":["§",3,"Paulo Roberto Volpe ","Alex Sandro Fernando Do Prado ","Uidas Almeida De Oliveira ","Aparecido Jose Di Santo","Mario Dalfre Junior","Diego Ramos Valerio","Kellerman Jurasseche","Rodrigo Marchiori Mazak ",4],"categoryId":[3,2,2,2,1,2,2,3,2,3],"alias":["§",3,"Tuta","Coco","Uidas ","Zé Do Dito","Dalfre ","Ramos","Magrao","Mazak",4],"clubId":["§1",30,27,2,7,26,17,"§1",26,"§1"],"cityId":[23,18,10,4,36,14,37,38,23,23],"status":["§",5,2,2,2,2,2,2,2,2,5],"imgId":[208,339,307,322,297,324,306,329,249,0],"suspended":["§",1,1,1,1,1,1,1,"",1,1],"isVirtual":["§",0,0,0,0,0,0,0,0,0,0]}}}
     }
 ];

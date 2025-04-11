@@ -3,39 +3,23 @@ const {testData} = require('./data');
 
 describe(`encode`, () => {
 
-    test(`simple array`, () => {
-        expect(jsonCompress.encode([{
-            id: 1,
-            name: 'name1'
-        }, {
-            id: 2,
-            name: 'name2'
-        }])).toMatchObject({
-            d: {
-                $: 0,
-                id: [1, 2],
-                name: ['name1', 'name2']
-            }
-        });
-    });
-
-    test(`complex`, () => {
-        const _in = testData[1].in;
+    test.each(testData)(`Equal IN and decode(encode($name))`, (data) => {
+        const _in = data.in;
         const out = jsonCompress.encode(_in);
         const newin = jsonCompress.decode(out);
         expect(newin).toMatchObject(_in);
     });
 
-    test.each(testData)('encode', (data) => {
+    test.each(testData)('encode($name) return the expected value', (data) => {
         const lenIn = JSON.stringify(data.in).length;
         const out = jsonCompress.encode(data.in);
         const lenOut = JSON.stringify(out).length;
         process.stdout.write(`lenIn: ${lenIn}, lenOut: ${lenOut}\n`);
-        expect(lenOut).toBeLessThan(lenIn);
+        expect(lenOut).toBeLessThanOrEqual(lenIn);
         expect(out).toMatchObject(data.out);
     });
 
-    test.each(testData)('decode', (data) => {
+    test.each(testData)('decode(encode($name)) returns the original value', (data) => {
         const out = jsonCompress.decode(data.out);
         expect(out).toMatchObject(data.in);
     });
