@@ -1,27 +1,55 @@
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
-export const RADIX = 36;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+const TOKEN_SEP_STR = '\\s.,;:!?-';
+export const TOKEN_SEP = new RegExp(`[${TOKEN_SEP_STR}]+`);
+export const TOKEN_LIKE = new RegExp(`[^${TOKEN_SEP_STR}]+`);
+export const TOKEN_LIKE_G = new RegExp(`[^${TOKEN_SEP_STR}]+`, 'g');
+export const TOKEN_DEF = new RegExp(`^§[^${TOKEN_SEP_STR}]+$`);
 
-export function encode(value: any): any {
+export const RADIX = 36;
+// Array shrinking constants:
+export const A_PREFIX = '$'; // Inside each array item
+export const SHRINKED_ARR_PREFIX = '$#'; // array[0]
+export const TOKEN_MARK = '';
+export const A_STR = '$';
+export const A_BOOL = '@';
+export const A_NUM = '#';
+export const A_NULL = '*';
+
+export function encode(
+  value: any,
+  opts = { insideStrings: true, shrinkArrays: true },
+): any {
   // First convert the array of objects into object of arrays
-  const pivot = getpivot(value);
   const valueMap = new Map<string | boolean | null, string>();
   const dateMap = new Map<string, string | number>();
   let dateMin: number | string = 0;
 
+  const pivot = getpivot(value);
   createStringMap(pivot);
-  const ret = {} as any;
+  const result: any[] = [];
+  let data = replaceKeyValue(pivot);
+  if (opts.shrinkArrays) {
+    data = shrinkAllArrays(data);
+  }
+
   if (valueMap.size > 0 || dateMap.size > 0) {
-    if (dateMap.size > 0) ret.$$ = (dateMin as number).toString(RADIX);
-    if (valueMap.size > 0) ret.$ = Array.from(valueMap.keys());
-    ret.d = replaceKeyValue(pivot);
-  } else ret.d = pivot;
-
-  ret.d = shrinkAllArrays(ret.d);
-
-  return ret;
+    if (valueMap.size > 0) {
+      const $ = Array.from(valueMap.keys())
+        .map((k) => {
+          const t = getArrayTypeCh(k);
+          return t + (t == A_NULL ? '' : String(k));
+        })
+        .join('');
+      result.push('$:' + $);
+    }
+    if (dateMap.size > 0)
+      result.push('$$:' + (dateMin as number).toString(RADIX));
+  } else result.push('$');
+  result.push(data);
+  return result;
 
   /** Process the object of arrays to populate the maps  */
-  function createStringMap(value: any): void {
+  function createStringMap(data: any): void {
     const map = new Map<
       string | boolean,
       { type: string; idx: number; num: number }
@@ -35,13 +63,23 @@ export function encode(value: any): any {
         (isKey || type == 'string' || /^\d+$/.test(val as string)) &&
         (type != 'string' || (val as string).length > 2)
       ) {
-        let k = map.get(val);
-        if (!k) map.set(val, (k = { type, idx: map.size, num: 0 }));
-        k.num++;
+        if (opts.insideStrings && type == 'string') {
+          const parts = (val as string).split(TOKEN_SEP);
+          for (const part of parts) {
+            let k = map.get(part);
+            if (!k) map.set(part, (k = { type, idx: map.size, num: 0 }));
+            k.num++;
+          }
+        } else {
+          let k = map.get(val);
+          if (!k) map.set(val, (k = { type, idx: map.size, num: 0 }));
+          k.num++;
+        }
       }
     };
 
-    JSON.stringify(value, (key, val) => {
+    JSON.stringify(data, (key, val) => {
+      if (!key) return val; // Ignores key==''
       mapAdd(key, 'key');
       // It's an ISO Date, then convert it into a number and get the min date
       if (typeof val == 'string' && ISO_DATE.test(val)) {
@@ -55,15 +93,17 @@ export function encode(value: any): any {
       return val;
     });
 
-    // Cleanup the value map
+    // Create the valueMap selecting only the most used words
+    // which compressed are smaller than the original string
     Array.from(map.entries())
-      .filter((entry) => entry[1].num > 1)
-      .sort(
-        (a, b) =>
-          b[1].num * String(b[0]).length - a[1].num * String(a[0]).length,
+      .map((a: any) => ((a[1].weight = a[1].num * String(a[0]).length), a))
+      .sort((a, b) => b[1].weight - a[1].weight)
+      .filter(
+        ([key, val], i) =>
+          val.weight >
+          val.num * (i.toString(RADIX).length + 1) + String(key).length + 1,
       )
       .map(([key, val]) => key)
-      .filter((key, i) => String(key).length > i.toString(RADIX).length + 1)
       .forEach((key, i) => valueMap.set(key, i.toString(RADIX)));
 
     // Use the date map, only if there are more than one date
@@ -84,7 +124,7 @@ export function encode(value: any): any {
       if (!arr.some((e) => typeof e == 'number')) {
         let c = 0;
         const arrCopy = arr.map((e) => {
-          if (typeof e == 'string' && e[0] == '§' && e[1] != '§') {
+          if (typeof e == 'string' && TOKEN_DEF.test(e[0])) {
             e = parseInt(e.substring(1), RADIX) as any;
             c++;
           }
@@ -96,7 +136,7 @@ export function encode(value: any): any {
         }
       }
       return arr;
-    } else if (type == 'object' && value !== null) {
+    } else if (type == 'object') {
       const newValue: any = {};
       for (const [key, val] of Object.entries(value)) {
         const k = valueMap.get(key);
@@ -104,12 +144,27 @@ export function encode(value: any): any {
         newValue[newkey] = replaceKeyValue(val);
       }
       return newValue;
-    }
-    if (['string', 'boolean', 'null'].includes(type)) {
+    } else if (
+      type == 'boolean' ||
+      type == 'null' ||
+      (type == 'string' && !opts.insideStrings)
+    ) {
       const k = valueMap.get(value);
       if (k !== undefined) return '§' + k;
+    } else if (type === 'string' && opts.insideStrings) {
+      if (TOKEN_SEP.test(value)) {
+        const newval = String(value).replace(TOKEN_LIKE_G, (g: string) => {
+          const k = valueMap.get(g);
+          if (k !== undefined) return '§' + k;
+          else return g;
+        });
+        return newval;
+      } else {
+        const k = valueMap.get(value);
+        if (k !== undefined) return '§' + k;
+      }
     }
-    if (type === 'string') {
+    if (type == 'string') {
       const d = dateMap.get(value);
       if (d !== undefined) return '§§' + d;
     }
@@ -141,47 +196,6 @@ const getpivot = (value: any): any => {
   return value;
 };
 
-const shrinkOneArray = <T extends string | boolean | number>(arr: T[]): T[] => {
-  const result: T[] = [];
-  let i = 0;
-  const n = arr.length;
-  let used = false;
-
-  while (i < n) {
-    const curr: T | string = arr[i];
-    const currType = typeof curr;
-    // Only consider strings (or numbers)
-    if (currType == 'number' || currType == 'string' || currType == 'boolean') {
-      let count = 1;
-      while (i + 1 < n && arr[i + 1] === curr) {
-        count++;
-        i++;
-      }
-      // Only consider a minumum o elements than surpasses the compressed prefix size
-      // otherwise it does not worth it
-      const currLen = String(curr).length;
-      const type = currType[0];
-      if (
-        count * (currLen + (type == 's' ? 3 : 1)) >=
-        9 + (type == 'b' ? 1 : currLen)
-      ) {
-        let newval: any = curr;
-        if (type == 'n') newval = curr.toString(RADIX);
-        else if (type == 'b') newval = curr ? '1' : '0';
-        const topush = `þ${count}${type}${newval}`;
-        result.push(topush as T);
-        used = true;
-      } else {
-        for (let i = 0; i < count; i++) result.push(curr);
-      }
-    } else result.push(curr);
-    i++;
-  }
-  if (used) result.unshift('þ' as T);
-
-  return result;
-};
-
 /** Search recursively the structure and compress every found array */
 const shrinkAllArrays = (value: any): any => {
   if (typeof value !== 'object' || !value) return value;
@@ -196,3 +210,53 @@ const shrinkAllArrays = (value: any): any => {
     return obj;
   }
 };
+
+const shrinkOneArray = <T extends string | boolean | number>(arr: T[]): T[] => {
+  const result: T[] = [];
+  let i = 0;
+  const n = arr.length;
+  let used = false;
+
+  while (i < n) {
+    const curr: T | string = arr[i];
+    const currType = curr === null ? 'null' : typeof curr;
+    // Only consider strings (or numbers)
+    if (
+      currType == 'number' ||
+      currType == 'string' ||
+      currType == 'boolean' ||
+      currType == 'null'
+    ) {
+      let count = 1;
+      while (i + 1 < n && arr[i + 1] === curr) {
+        count++;
+        i++;
+      }
+      // Only consider a minumum of elements than surpasses the compressed prefix size
+      // otherwise it does not worth it
+      const currLen = String(curr).length;
+      const type = getArrayTypeCh(curr);
+      if (
+        count * (currLen + (type == A_STR ? 3 : 1)) >=
+        9 + (type == A_BOOL ? 1 : type == A_NULL ? 0 : currLen)
+      ) {
+        let newval: any = curr;
+        if (type == A_NUM) newval = curr.toString(RADIX);
+        else if (type == A_BOOL) newval = curr ? '1' : '0';
+        else if (type == A_NULL) newval = '';
+        const topush = `${A_PREFIX}${count}${type}${newval}`;
+        result.push(topush as T);
+        used = true;
+      } else {
+        for (let i = 0; i < count; i++) result.push(curr);
+      }
+    } else result.push(curr);
+    i++;
+  }
+  if (used) result.unshift(SHRINKED_ARR_PREFIX as T);
+
+  return result;
+};
+
+const getArrayTypeCh = (val: string | null | number | boolean): string =>
+  val === null ? A_NULL : { s: A_STR, n: A_NUM, b: A_BOOL }[(typeof val)[0]]!;

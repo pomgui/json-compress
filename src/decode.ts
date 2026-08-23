@@ -1,12 +1,46 @@
-import { RADIX } from './encode';
+// prettier-ignore
+import {
+  A_BOOL, A_NULL, A_NUM, A_PREFIX, A_STR,
+  RADIX,
+  SHRINKED_ARR_PREFIX,
+  TOKEN_DEF, TOKEN_LIKE_G, TOKEN_SEP,
+} from './encode';
+
+const TYPES = A_STR + A_BOOL + A_NUM + A_NULL;
+const MAP_RE = new RegExp(`([${TYPES}])([^${TYPES}]*)`, 'g');
 
 export function decode(value: any): any {
-  if (!value?.d) return value;
-  const map = value.$;
-  const dateMin = parseInt(value.$$, RADIX);
-  const d = expandAllArrays(value.d);
+  // If it's not an encoded object, returns it "as is"
+  if (!value || !Array.isArray(value) || !String(value[0]).startsWith('$'))
+    return value;
+  const map: (string | number | boolean | null)[] = getmap(value[0]);
+  let next = !map.length ? 0 : 1;
+  const dateMin = String(value[next]).startsWith('$$:')
+    ? parseInt(value[next].substring(3), RADIX)
+    : 0;
+  next = map.length && dateMin ? 2 : 1;
+  const d = expandAllArrays(value[next]);
 
   return dodecode(d);
+
+  function getmap(map: string): (string | number | boolean | null)[] {
+    // A map exists only if the first element is "$:xxxxx", otherwise there's no map
+    if (!map.startsWith('$:')) return [];
+    map = map.substring(2);
+    const result = [];
+    for (const g of Array.from(map.matchAll(MAP_RE))) {
+      result.push(
+        g[1] == A_NUM
+          ? Number(g[2])
+          : g[1] == A_BOOL
+            ? Boolean(g[2])
+            : g[1] == A_NULL
+              ? null
+              : /*g[1] == A_STR */ g[2],
+      );
+    }
+    return result;
+  }
 
   function dodecode(value: any): any {
     if (!Array.isArray(value) && typeof value === 'object' && value !== null) {
@@ -18,7 +52,7 @@ export function decode(value: any): any {
         for (let i = 0; i < len; i++) {
           const item: any = {};
           for (const key of keys) {
-            item[getKey(key)] = value[key][i];
+            item[getKey(key) as string] = value[key][i];
           }
           result.push(item);
         }
@@ -26,7 +60,7 @@ export function decode(value: any): any {
       } else {
         return Object.entries(value).reduce(
           (result, [key, val]) => (
-            (result[getKey(key)] = dodecode(val)),
+            (result[getKey(key) as string] = dodecode(val)),
             result
           ),
           {} as any,
@@ -43,12 +77,18 @@ export function decode(value: any): any {
     } else if (typeof value === 'string') value = getKey(value);
     return value;
   }
-  function getKey(key: string): string {
-    if (key[0] == '§' && key[1] == '§')
+  function getKey(key: string): string | number | boolean | null {
+    if (TOKEN_SEP.test(key))
+      return key.replace(TOKEN_LIKE_G, (g) =>
+        TOKEN_DEF.test(g)
+          ? (map[parseInt(g.substring(1), RADIX)] as string)
+          : g,
+      );
+    else if (key[0] == '§' && key[1] == '§')
       return new Date(
         dateMin + parseInt(key.substring(2), RADIX),
       ).toISOString();
-    return key[0] == '§' ? map[parseInt(key.substring(1), RADIX)] : key;
+    else return key[0] == '§' ? map[parseInt(key.substring(1), RADIX)] : key;
   }
 }
 
@@ -57,7 +97,7 @@ const expandAllArrays = (value: any): any => {
   if (Array.isArray(value)) {
     const arr = Array(value.length);
     for (let i = 0; i < value.length; i++) arr[i] = expandAllArrays(value[i]);
-    if (arr[0] !== 'þ') return arr;
+    if (arr[0] !== SHRINKED_ARR_PREFIX) return arr;
     else return expandOneArray(arr);
   } else {
     const obj = {} as any;
@@ -66,23 +106,32 @@ const expandAllArrays = (value: any): any => {
   }
 };
 
+const ARR_SHRINK_RE = new RegExp(
+  `^\\${A_PREFIX}(\\d+)([${A_STR + A_NUM + A_BOOL + A_NULL}])(.*)$`,
+);
 const expandOneArray = <T = any>(arr: T[]): T[] => {
   const result: T[] = [];
   for (let i = 1; i < arr.length; i++) {
-    if (typeof arr[i] !== 'string' || (arr[i] as string)[0] !== 'þ') {
-      result.push(arr[i]);
+    const e = arr[i] as string;
+    let g: RegExpMatchArray | null;
+    if (typeof e !== 'string' || !(g = e.match(ARR_SHRINK_RE))) {
+      result.push(e as T);
     } else {
-      const encoded = (arr[i] as string).substring(1);
-      const g = /^(\d+)([nsb])(.*)$/.exec(encoded);
-      const count = parseInt(g![1]);
-      const value = (
-        g![2] == 'n'
-          ? parseInt(g![3], RADIX) // number
-          : g![2] == 'b'
-            ? g![3] == '1' // true|false
-            : g![3]
-      ) as T;
-      for (let i = 0; i < count; i++) result.push(value);
+      const [, q, t, v] = g;
+      const count = parseInt(q);
+      const value: string | boolean | number | null = (() => {
+        switch (t) {
+          case A_NUM:
+            return parseInt(v, RADIX); // number
+          case A_BOOL:
+            return v == '1'; // true|false
+          case A_NULL:
+            return null; // true|false
+          default:
+            return v; // string
+        }
+      })();
+      for (let i = 0; i < count; i++) result.push(value as T);
     }
   }
   return result;

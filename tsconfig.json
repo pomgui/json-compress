@@ -1,24 +1,19 @@
 {
-    "compilerOptions": {
-        "module": "CommonJS",
-        "target": "ES2017",
-        "noImplicitAny": true,
-        "preserveConstEnums": true,
-        "outDir": "./dist",
-        "sourceMap": true,
-        "noEmitHelpers": true,
-        "importHelpers": true,
-        "experimentalDecorators": true,
-        "strict": true,
-        "declaration": true,
-        "removeComments": true
-    },
-    "include": [
-        "src/**/*.ts"
-    ],
-    "exclude": [
-        "node_modules",
-        "**/*.test.ts"
-    ]
-  }
-  
+  "compilerOptions": {
+    "module": "CommonJS",
+    "target": "ES2017",
+    "lib": ["ES2020"],
+    "noImplicitAny": true,
+    "preserveConstEnums": true,
+    "outDir": "./dist",
+    "sourceMap": true,
+    "noEmitHelpers": true,
+    "importHelpers": true,
+    "experimentalDecorators": true,
+    "strict": true,
+    "declaration": true,
+    "removeComments": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts"]
+}

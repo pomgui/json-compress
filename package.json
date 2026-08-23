@@ -1,10 +1,11 @@
 {
   "name": "@pomgui/json-compress",
   "version": "1.0.0-rc.3",
-  "description": "Small footpring json compacter",
+  "description": "Small footprint json compacter",
   "main": "dist/index.js",
   "scripts": {
     "prepare": "tsup src/index.ts --format cjs --dts --out-dir dist --clean --sourcemap --minify",
+    "prepare:debug": "tsc",
     "test": "jest",
     "test:cover": "jest --coverage",
     "preversion": "npm run prepare",
