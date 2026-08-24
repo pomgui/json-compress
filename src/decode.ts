@@ -1,22 +1,33 @@
 // prettier-ignore
+import { PROTOCOL_VERSION } from './const';
 import {
-  A_BOOL, A_NULL, A_NUM, A_PREFIX, A_STR,
+  A_BOOL,
+  A_NULL,
+  A_NUM,
+  A_PREFIX,
+  A_STR,
   RADIX,
   SHRINKED_ARR_PREFIX,
-  TOKEN_DEF, TOKEN_LIKE_G, TOKEN_SEP,
+  TOKEN_DEF,
+  TOKEN_LIKE_G,
+  TOKEN_SEP,
 } from './encode';
 
 const TYPES = A_STR + A_BOOL + A_NUM + A_NULL;
 const MAP_RE = new RegExp(`([${TYPES}])([^${TYPES}]*)`, 'g');
+const VERSION_RE = new RegExp(`^\\$\\$?${PROTOCOL_VERSION}(:.+)?$`);
 
 export function decode(value: any): any {
   // If it's not an encoded object, returns it "as is"
   if (!value || !Array.isArray(value) || !String(value[0]).startsWith('$'))
     return value;
+
+  if (!VERSION_RE.test(value[0]))
+    throw new Error(`@pomgui/json-compress: Invalid encoded version!`);
   const map: (string | number | boolean | null)[] = getmap(value[0]);
   let next = !map.length ? 0 : 1;
-  const dateMin = String(value[next]).startsWith('$$:')
-    ? parseInt(value[next].substring(3), RADIX)
+  const dateMin = String(value[next]).startsWith(`$$${PROTOCOL_VERSION}:`)
+    ? parseInt(value[next].substring(3 + PROTOCOL_VERSION.length), RADIX)
     : 0;
   next = map.length && dateMin ? 2 : 1;
   const d = expandAllArrays(value[next]);
@@ -25,8 +36,8 @@ export function decode(value: any): any {
 
   function getmap(map: string): (string | number | boolean | null)[] {
     // A map exists only if the first element is "$:xxxxx", otherwise there's no map
-    if (!map.startsWith('$:')) return [];
-    map = map.substring(2);
+    if (!map.startsWith(`$${PROTOCOL_VERSION}:`)) return [];
+    map = map.substring(2 + PROTOCOL_VERSION.length);
     const result = [];
     for (const g of Array.from(map.matchAll(MAP_RE))) {
       result.push(

@@ -2,17 +2,17 @@ const { jsonCompress } = require('../dist/index');
 const { testData } = require('./data');
 const fs = require('fs');
 
-describe.each(testData)(`@pomgui/json-compress`, (td) => {
-  let data;
-  let encoded;
-  let decoded;
+describe('@pomgui/json-compress', () => {
   describe.each([
     { insideStrings: false, shrinkArrays: false },
     { insideStrings: false, shrinkArrays: true },
     { insideStrings: true, shrinkArrays: false },
     { insideStrings: true, shrinkArrays: true },
   ])(`Opts combination: %s`, (opts) => {
-    beforeAll(() => {
+    let data;
+    let encoded;
+    let decoded;
+    test.each(testData)(`$name`, (td) => {
       data = { json: td.in, len: 0 };
       data.len = save('in', data.json);
       encoded = {
@@ -22,19 +22,44 @@ describe.each(testData)(`@pomgui/json-compress`, (td) => {
       encoded.len = save('encoded', encoded.json);
       decoded = { json: jsonCompress.decode(encoded.json), len: 0 };
       decoded.len = save('decoded', decoded.json || {});
-    });
-    test(`in == decode(encode(in)) // ${td.name}`, () => {
+
       expect(data.json).toStrictEqual(decoded.json);
     });
   });
 
-  test.only('test', async () => {
-    const data = await readUrl(
-      `https://github.com/antonmedv/json-examples/raw/refs/heads/master/data_50mb.json`,
-    );
-    const encoded = { json: jsonCompress.encode(data.json), len: 0 };
-    encoded.len = save('encoded', encoded.json);
+  describe('Version control', () => {
+    afterEach(() => {
+      jest.resetModules();
+    });
+    test('encode version != decode version', () => {
+      let encoded;
+
+      jest.isolateModules(() => {
+        jest.doMock('../src/version', () => ({ VERSION: '2.0.0' }));
+        const { jsonCompress } = require('../src/index');
+        encoded = jsonCompress.encode({
+          first: 'a repeated value',
+          second: 'a repeated value',
+        });
+      });
+
+      jest.isolateModules(() => {
+        jest.doMock('../src/version', () => ({ VERSION: '1.0.0' }));
+        const { jsonCompress } = require('../src/index');
+        expect(() => jsonCompress.decode(encoded)).toThrow(
+          'Invalid encoded version',
+        );
+      });
+    });
   });
+
+  //   test.only('test', async () => {
+  //     const data = await readUrl(
+  //       `https://github.com/antonmedv/json-examples/raw/refs/heads/master/data_50mb.json`,
+  //     );
+  //     const encoded = { json: jsonCompress.encode(data.json), len: 0 };
+  //     encoded.len = save('encoded', encoded.json);
+  //   });
 });
 
 function save(file, json) {

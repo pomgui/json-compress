@@ -1,3 +1,5 @@
+import { PROTOCOL_VERSION } from './const';
+
 const ISO_DATE =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:?\d{2})$/;
 const TOKEN_SEP_STR = '\\s.,;:!?-';
@@ -42,10 +44,12 @@ export function encode(
           return t + (t == A_NULL ? '' : String(k));
         })
         .join('');
-      result.push('$:' + $);
+      result.push(`$${PROTOCOL_VERSION}:` + $);
     }
     if (dateMap.size > 0)
-      result.push('$$:' + (dateMin as number).toString(RADIX));
+      result.push(
+        `$$${PROTOCOL_VERSION}:` + (dateMin as number).toString(RADIX),
+      );
   } else result.push('$');
   result.push(data);
   return result;
