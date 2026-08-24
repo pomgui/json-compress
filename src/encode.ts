@@ -1,4 +1,5 @@
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+const ISO_DATE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:?\d{2})$/;
 const TOKEN_SEP_STR = '\\s.,;:!?-';
 export const TOKEN_SEP = new RegExp(`[${TOKEN_SEP_STR}]+`);
 export const TOKEN_LIKE = new RegExp(`[^${TOKEN_SEP_STR}]+`);
@@ -24,8 +25,9 @@ export function encode(
   const dateMap = new Map<string, string | number>();
   let dateMin: number | string = 0;
 
-  const pivot = getpivot(value);
-  createStringMap(pivot);
+  const collect = createStringMap();
+  const pivot = getpivot(value, collect.addKey, collect.addValue);
+  collect.finish();
   const result: any[] = [];
   let data = replaceKeyValue(pivot);
   if (opts.shrinkArrays) {
@@ -49,13 +51,17 @@ export function encode(
   return result;
 
   /** Process the object of arrays to populate the maps  */
-  function createStringMap(data: any): void {
+  function createStringMap(): {
+    addKey: (key: string, value: any) => void;
+    addValue: (value: any) => void;
+    finish: () => void;
+  } {
     const map = new Map<
-      string | boolean,
+      string | boolean | null,
       { type: string; idx: number; num: number }
     >();
 
-    const mapAdd = (val: string | boolean, keyval: 'key' | 'value') => {
+    const mapAdd = (val: string | boolean | null, keyval: 'key' | 'value') => {
       const isKey = keyval === 'key';
       const type = val === null ? 'null' : typeof val;
       if (
@@ -78,42 +84,44 @@ export function encode(
       }
     };
 
-    JSON.stringify(data, (key, val) => {
-      if (!key) return val; // Ignores key==''
-      mapAdd(key, 'key');
-      // It's an ISO Date, then convert it into a number and get the min date
+    const addValue = (val: any): void => {
       if (typeof val == 'string' && ISO_DATE.test(val)) {
-        const date = new Date(val);
-        const t = date.getTime();
-        if (!dateMin || (dateMin as number) > t) dateMin = t;
-        dateMap.set(val, t);
-        return val;
+        const timestamp = new Date(val).getTime();
+        if (!dateMin || (dateMin as number) > timestamp) dateMin = timestamp;
+        dateMap.set(val, timestamp);
+      } else {
+        mapAdd(val, 'value');
       }
-      mapAdd(val, 'value');
-      return val;
-    });
+    };
+    const addKey = (key: string, value: any): void => {
+      mapAdd(key, 'key');
+      addValue(value);
+    };
 
-    // Create the valueMap selecting only the most used words
-    // which compressed are smaller than the original string
-    Array.from(map.entries())
-      .map((a: any) => ((a[1].weight = a[1].num * String(a[0]).length), a))
-      .sort((a, b) => b[1].weight - a[1].weight)
-      .filter(
-        ([key, val], i) =>
-          val.weight >
-          val.num * (i.toString(RADIX).length + 1) + String(key).length + 1,
-      )
-      .map(([key, val]) => key)
-      .forEach((key, i) => valueMap.set(key, i.toString(RADIX)));
+    const finish = (): void => {
+      // Create the valueMap selecting only the most used words
+      // which compressed are smaller than the original string
+      Array.from(map.entries())
+        .map((a: any) => ((a[1].weight = a[1].num * String(a[0]).length), a))
+        .sort((a, b) => b[1].weight - a[1].weight)
+        .filter(
+          ([key, val], i) =>
+            val.weight >
+            val.num * (i.toString(RADIX).length + 1) + String(key).length + 1,
+        )
+        .map(([key]) => key)
+        .forEach((key, i) => valueMap.set(key, i.toString(RADIX)));
 
-    // Use the date map, only if there are more than one date
-    if (dateMap.size > 0) {
-      for (const k of dateMap.keys())
-        dateMap.set(
-          k,
-          ((dateMap.get(k)! as number) - (dateMin as number)).toString(RADIX),
-        );
-    }
+      // Use the date map, only if there are more than one date
+      if (dateMap.size > 0) {
+        for (const k of dateMap.keys())
+          dateMap.set(
+            k,
+            ((dateMap.get(k)! as number) - (dateMin as number)).toString(RADIX),
+          );
+      }
+    };
+    return { addKey, addValue, finish };
   }
 
   function replaceKeyValue(value: any): any {
@@ -172,7 +180,11 @@ export function encode(
   }
 }
 
-const getpivot = (value: any): any => {
+const getpivot = (
+  value: any,
+  addKey: (key: string, value: any) => void,
+  addValue: (value: any) => void,
+): any => {
   if (Array.isArray(value)) {
     if (
       value.length > 1 &&
@@ -181,17 +193,30 @@ const getpivot = (value: any): any => {
       !Array.isArray(value[0])
     ) {
       const result: Record<string, any[]> = { $: 0 as any };
-      for (const key of Object.keys(value[0]))
-        result[key] = value.map((item) => getpivot(item[key]));
+      addKey('$', result.$);
+      for (const key of Object.keys(value[0])) {
+        result[key] = value.map((item) =>
+          getpivot(item[key], addKey, addValue),
+        );
+        addKey(key, result[key]);
+      }
       return result;
-    } else return value.map(getpivot) as any;
+    } else {
+      return value.map((item) => {
+        const result = getpivot(item, addKey, addValue);
+        addValue(result);
+        return result;
+      }) as any;
+    }
   } else if (value instanceof Date) {
     return value.toISOString() as any;
   } else if (typeof value === 'object' && value !== null) {
-    return Object.entries(value).reduce(
-      (result, [key, val]) => ((result[key] = getpivot(val)), result),
-      {} as any,
-    );
+    const result: Record<string, any> = {};
+    for (const [key, val] of Object.entries(value)) {
+      result[key] = getpivot(val, addKey, addValue);
+      addKey(key, result[key]);
+    }
+    return result;
   }
   return value;
 };

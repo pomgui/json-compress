@@ -28,20 +28,14 @@ describe.each(testData)(`@pomgui/json-compress`, (td) => {
     });
   });
 
-  //   test.only('test', async () => {
-  //     const data = await readUrl(
-  //       `https://files.jsons.live/Amazon/1-level/1-KB/minified.json`,
-  //     );
-  //     const encoded = { json: jsonCompress.encode(data), len: 0 };
-  //     encoded.len = save('encoded', encoded.json);
-  //   });
+  test.only('test', async () => {
+    const data = await readUrl(
+      `https://github.com/antonmedv/json-examples/raw/refs/heads/master/data_50mb.json`,
+    );
+    const encoded = { json: jsonCompress.encode(data.json), len: 0 };
+    encoded.len = save('encoded', encoded.json);
+  });
 });
-
-async function readUrl(url) {
-  const response = await fetch(url);
-  const text = await response.text();
-  return JSON.parse(text);
-}
 
 function save(file, json) {
   const str = JSON.stringify(json);
