@@ -53,6 +53,21 @@ describe('@pomgui/json-compress', () => {
     });
   });
 
+  test.only('escapes control characters in JSON data', () => {
+    const data = {
+      $: '§',
+      plain: '§0',
+      dateLike: '§§abc',
+      compressedArray: ['$#', '$1svalue', '§', '\\$\\§'],
+      nested: { $: 'literal key' },
+      zero: { $: 0, value: 'ordinary object' },
+    };
+
+    const encoded = jsonCompress.encode(data);
+    const decoded = jsonCompress.decode(encoded);
+    expect(decoded).toStrictEqual(data);
+  });
+
   //   test.only('test', async () => {
   //     const data = await readUrl(
   //       `https://github.com/antonmedv/json-examples/raw/refs/heads/master/data_50mb.json`,

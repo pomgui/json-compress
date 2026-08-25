@@ -50,7 +50,9 @@ export function decode(value: any): any {
               : /*g[1] == A_STR */ g[2],
       );
     }
-    return result;
+    return result.map((entry) =>
+      typeof entry === 'string' ? unescapeText(entry) : entry,
+    );
   }
 
   function dodecode(value: any): any {
@@ -99,7 +101,14 @@ export function decode(value: any): any {
       return new Date(
         dateMin + parseInt(key.substring(2), RADIX),
       ).toISOString();
-    else return key[0] == '§' ? map[parseInt(key.substring(1), RADIX)] : key;
+    else
+      return key[0] == '§'
+        ? map[parseInt(key.substring(1), RADIX)]
+        : unescapeText(key);
+  }
+
+  function unescapeText(value: string): string {
+    return value.replace(/\\([\\$§])/g, '$1');
   }
 }
 

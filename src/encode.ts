@@ -8,6 +8,9 @@ export const TOKEN_LIKE = new RegExp(`[^${TOKEN_SEP_STR}]+`);
 export const TOKEN_LIKE_G = new RegExp(`[^${TOKEN_SEP_STR}]+`, 'g');
 export const TOKEN_DEF = new RegExp(`^§[^${TOKEN_SEP_STR}]+$`);
 
+export const escapeText = (value: string): string =>
+  value.replace(/[\\$§]/g, '\\$&');
+
 export const RADIX = 36;
 // Array shrinking constants:
 export const A_PREFIX = '$'; // Inside each array item
@@ -17,6 +20,7 @@ export const A_STR = '$';
 export const A_BOOL = '@';
 export const A_NUM = '#';
 export const A_NULL = '*';
+const PIVOT_KEY = '\u0000';
 
 export function encode(
   value: any,
@@ -41,7 +45,7 @@ export function encode(
       const $ = Array.from(valueMap.keys())
         .map((k) => {
           const t = getArrayTypeCh(k);
-          return t + (t == A_NULL ? '' : String(k));
+          return t + (t == A_NULL ? '' : escapeText(String(k)));
         })
         .join('');
       result.push(`$${PROTOCOL_VERSION}:` + $);
@@ -152,7 +156,12 @@ export function encode(
       const newValue: any = {};
       for (const [key, val] of Object.entries(value)) {
         const k = valueMap.get(key);
-        const newkey = k !== undefined ? '§' + k : key;
+        const isPivot = key === PIVOT_KEY;
+        const newkey = isPivot
+          ? '$'
+          : k !== undefined
+            ? '§' + k
+            : escapeText(key);
         newValue[newkey] = replaceKeyValue(val);
       }
       return newValue;
@@ -168,12 +177,13 @@ export function encode(
         const newval = String(value).replace(TOKEN_LIKE_G, (g: string) => {
           const k = valueMap.get(g);
           if (k !== undefined) return '§' + k;
-          else return g;
+          else return escapeText(g);
         });
         return newval;
       } else {
         const k = valueMap.get(value);
         if (k !== undefined) return '§' + k;
+        return escapeText(value);
       }
     }
     if (type == 'string') {
@@ -196,8 +206,8 @@ const getpivot = (
       value[0] !== null &&
       !Array.isArray(value[0])
     ) {
-      const result: Record<string, any[]> = { $: 0 as any };
-      addKey('$', result.$);
+      const result: Record<string, any[]> = { [PIVOT_KEY]: 0 as any };
+      addKey(PIVOT_KEY, result[PIVOT_KEY]);
       for (const key of Object.keys(value[0])) {
         result[key] = value.map((item) =>
           getpivot(item[key], addKey, addValue),
