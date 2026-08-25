@@ -10,20 +10,20 @@ describe('@pomgui/json-compress', () => {
     { insideStrings: true, shrinkArrays: true },
   ])(`Opts combination: %s`, (opts) => {
     let data;
-    let encoded;
-    let decoded;
+    let compressed;
+    let decompressed;
     test.each(testData)(`$name`, (td) => {
       data = { json: td.in, len: 0 };
       data.len = save('in', data.json);
-      encoded = {
-        json: jsonCompress.encode(data.json, opts),
+      compressed = {
+        json: jsonCompress.compress(data.json, opts),
         len: 0,
       };
-      encoded.len = save('encoded', encoded.json);
-      decoded = { json: jsonCompress.decode(encoded.json), len: 0 };
-      decoded.len = save('decoded', decoded.json || {});
+      compressed.len = save('compressed', compressed.json);
+      decompressed = { json: jsonCompress.decompress(compressed.json), len: 0 };
+      decompressed.len = save('decompressed', decompressed.json || {});
 
-      expect(data.json).toStrictEqual(decoded.json);
+      expect(data.json).toStrictEqual(decompressed.json);
     });
   });
 
@@ -31,13 +31,13 @@ describe('@pomgui/json-compress', () => {
     afterEach(() => {
       jest.resetModules();
     });
-    test('encode version != decode version', () => {
-      let encoded;
+    test('compress version != decompress version', () => {
+      let compressed;
 
       jest.isolateModules(() => {
         jest.doMock('../src/version', () => ({ VERSION: '2.0.0' }));
         const { jsonCompress } = require('../src/index');
-        encoded = jsonCompress.encode({
+        compressed = jsonCompress.compress({
           first: 'a repeated value',
           second: 'a repeated value',
         });
@@ -46,8 +46,8 @@ describe('@pomgui/json-compress', () => {
       jest.isolateModules(() => {
         jest.doMock('../src/version', () => ({ VERSION: '1.0.0' }));
         const { jsonCompress } = require('../src/index');
-        expect(() => jsonCompress.decode(encoded)).toThrow(
-          'Invalid encoded version',
+        expect(() => jsonCompress.decompress(compressed)).toThrow(
+          'Invalid compressed version',
         );
       });
     });
@@ -63,17 +63,17 @@ describe('@pomgui/json-compress', () => {
       zero: { $: 0, value: 'ordinary object' },
     };
 
-    const encoded = jsonCompress.encode(data);
-    const decoded = jsonCompress.decode(encoded);
-    expect(decoded).toStrictEqual(data);
+    const compressed = jsonCompress.compress(data);
+    const decompressed = jsonCompress.decompress(compressed);
+    expect(decompressed).toStrictEqual(data);
   });
 
   //   test.only('test', async () => {
   //     const data = await readUrl(
   //       `https://github.com/antonmedv/json-examples/raw/refs/heads/master/data_50mb.json`,
   //     );
-  //     const encoded = { json: jsonCompress.encode(data.json), len: 0 };
-  //     encoded.len = save('encoded', encoded.json);
+  //     const compressed = { json: jsonCompress.compress(data.json), len: 0 };
+  //     compressed.len = save('compressed', compressed.json);
   //   });
 });
 

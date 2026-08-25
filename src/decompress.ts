@@ -1,5 +1,4 @@
 // prettier-ignore
-import { PROTOCOL_VERSION } from './const';
 import {
   A_BOOL,
   A_NULL,
@@ -11,19 +10,20 @@ import {
   TOKEN_DEF,
   TOKEN_LIKE_G,
   TOKEN_SEP,
-} from './encode';
+} from './compress';
+import { PROTOCOL_VERSION } from './const';
 
 const TYPES = A_STR + A_BOOL + A_NUM + A_NULL;
 const MAP_RE = new RegExp(`([${TYPES}])([^${TYPES}]*)`, 'g');
 const VERSION_RE = new RegExp(`^\\$\\$?${PROTOCOL_VERSION}(:.+)?$`);
 
-export function decode(value: any): any {
-  // If it's not an encoded object, returns it "as is"
+export function decompress(value: any): any {
+  // If it's not an compressed object, returns it "as is"
   if (!value || !Array.isArray(value) || !String(value[0]).startsWith('$'))
     return value;
 
   if (!VERSION_RE.test(value[0]))
-    throw new Error(`@pomgui/json-compress: Invalid encoded version!`);
+    throw new Error(`@pomgui/json-compress: Invalid compressed version!`);
   const map: (string | number | boolean | null)[] = getmap(value[0]);
   let next = !map.length ? 0 : 1;
   const dateMin = String(value[next]).startsWith(`$$${PROTOCOL_VERSION}:`)
@@ -32,7 +32,7 @@ export function decode(value: any): any {
   next = map.length && dateMin ? 2 : 1;
   const d = expandAllArrays(value[next]);
 
-  return dodecode(d);
+  return dodecompress(d);
 
   function getmap(map: string): (string | number | boolean | null)[] {
     // A map exists only if the first element is "$:xxxxx", otherwise there's no map
@@ -55,12 +55,12 @@ export function decode(value: any): any {
     );
   }
 
-  function dodecode(value: any): any {
+  function dodecompress(value: any): any {
     if (!Array.isArray(value) && typeof value === 'object' && value !== null) {
       if (value.$ !== undefined) {
         const keys = Object.keys(value).filter((key) => key !== '$');
         const result = [];
-        keys.forEach((key) => (value[key] = dodecode(value[key])));
+        keys.forEach((key) => (value[key] = dodecompress(value[key])));
         const len = value[keys[0]].length;
         for (let i = 0; i < len; i++) {
           const item: any = {};
@@ -73,7 +73,7 @@ export function decode(value: any): any {
       } else {
         return Object.entries(value).reduce(
           (result, [key, val]) => (
-            (result[getKey(key) as string] = dodecode(val)),
+            (result[getKey(key) as string] = dodecompress(val)),
             result
           ),
           {} as any,
@@ -84,9 +84,9 @@ export function decode(value: any): any {
         return value.slice(1).map((e) => {
           if (typeof e == 'number') return map[e];
           if (typeof e == 'string') return getKey(e);
-          return dodecode(e);
+          return dodecompress(e);
         });
-      } else return value.map(dodecode);
+      } else return value.map(dodecompress);
     } else if (typeof value === 'string') value = getKey(value);
     return value;
   }
@@ -108,7 +108,7 @@ export function decode(value: any): any {
   }
 
   function unescapeText(value: string): string {
-    return value.replace(/\\([\\$§])/g, '$1');
+    return value.indexOf('\\') < 0 ? value : value.replace(/\\([\\$§])/g, '$1');
   }
 }
 

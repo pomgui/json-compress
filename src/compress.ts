@@ -7,9 +7,10 @@ export const TOKEN_SEP = new RegExp(`[${TOKEN_SEP_STR}]+`);
 export const TOKEN_LIKE = new RegExp(`[^${TOKEN_SEP_STR}]+`);
 export const TOKEN_LIKE_G = new RegExp(`[^${TOKEN_SEP_STR}]+`, 'g');
 export const TOKEN_DEF = new RegExp(`^§[^${TOKEN_SEP_STR}]+$`);
+const ESCAPE_RE = /[\\$§]/;
 
 export const escapeText = (value: string): string =>
-  value.replace(/[\\$§]/g, '\\$&');
+  ESCAPE_RE.test(value) ? value.replace(/[\\$§]/g, '\\$&') : value;
 
 export const RADIX = 36;
 // Array shrinking constants:
@@ -22,7 +23,7 @@ export const A_NUM = '#';
 export const A_NULL = '*';
 const PIVOT_KEY = '\u0000';
 
-export function encode(
+export function compress(
   value: any,
   opts = { insideStrings: true, shrinkArrays: true },
 ): any {

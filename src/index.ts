@@ -1,6 +1,9 @@
-import { decode } from "./decode";
-import { encode } from "./encode";
+export { compress } from './compress';
+export { decompress } from './decompress';
+import { compress } from './compress';
+import { decompress } from './decompress';
 
 export const jsonCompress = {
-    encode, decode
+  compress,
+  decompress,
 };
