@@ -409,7 +409,7 @@ module.exports.testData = [
     },
   },
   {
-    name: 'tournaments/i/matches',
+    name: 'tournaments/:id/matches',
     in: {
       tournaments: [
         {
@@ -1990,9 +1990,9 @@ module.exports.testData = [
     in: [ 1235, 1235, 1235, 1235, 1235, 1235, 
         259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 259874, 
         'academy', 'academy', 'academy', 'academy', 'academy', 'academy', 'academy', 'academy', 123, 'academy',
-        true,true,true,true,true,true,true,
+        true,true,true,true,true,true,true,true,true,true,
         false,false,false,false,false,false,
         null,null,null,null,null,null,
     ],
   },
-]; //.filter((t) => t.name == 'players/id/tournaments');
+]; //.filter((t) => t.name == 'v_players');

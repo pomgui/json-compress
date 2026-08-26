@@ -1,137 +1,47 @@
-import { PROTOCOL_VERSION } from './const';
+import {
+  A_BOOL,
+  A_NULL,
+  A_NUM,
+  A_PREFIX,
+  A_STR,
+  MAP_VALID_TYPES,
+  PIVOT_KEY,
+  PROTOCOL_VERSION,
+  RADIX,
+  SHRINKED_ARR_PREFIX,
+  TOKEN_DEF,
+  TOKEN_LIKE_G,
+  TOKEN_SEP,
+} from './const';
+import { TokenMap } from './tools/TokenMap';
+import { MapValueKey } from './types';
 
-const ISO_DATE =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:?\d{2})$/;
-const TOKEN_SEP_STR = '\\s.,;:!?-';
-export const TOKEN_SEP = new RegExp(`[${TOKEN_SEP_STR}]+`);
-export const TOKEN_LIKE = new RegExp(`[^${TOKEN_SEP_STR}]+`);
-export const TOKEN_LIKE_G = new RegExp(`[^${TOKEN_SEP_STR}]+`, 'g');
-export const TOKEN_DEF = new RegExp(`^§[^${TOKEN_SEP_STR}]+$`);
-const ESCAPE_RE = /[\\$§]/;
-
-export const escapeText = (value: string): string =>
-  ESCAPE_RE.test(value) ? value.replace(/[\\$§]/g, '\\$&') : value;
-
-export const RADIX = 36;
-// Array shrinking constants:
-export const A_PREFIX = '$'; // Inside each array item
-export const SHRINKED_ARR_PREFIX = '$#'; // array[0]
-export const TOKEN_MARK = '';
-export const A_STR = '$';
-export const A_BOOL = '@';
-export const A_NUM = '#';
-export const A_NULL = '*';
-const PIVOT_KEY = '\u0000';
+export type CompressOptionsType = { insideStrings: true; shrinkArrays: true };
 
 export function compress(
   value: any,
-  opts = { insideStrings: true, shrinkArrays: true },
+  opts: CompressOptionsType = { insideStrings: true, shrinkArrays: true },
 ): any {
-  // First convert the array of objects into object of arrays
-  const valueMap = new Map<string | boolean | null, string>();
-  const dateMap = new Map<string, string | number>();
-  let dateMin: number | string = 0;
+  const map = new TokenMap(opts);
+  const pivot = getpivot(value, map);
+  map.finish();
 
-  const collect = createStringMap();
-  const pivot = getpivot(value, collect.addKey, collect.addValue);
-  collect.finish();
   const result: any[] = [];
   let data = replaceKeyValue(pivot);
   if (opts.shrinkArrays) {
     data = shrinkAllArrays(data);
   }
 
-  if (valueMap.size > 0 || dateMap.size > 0) {
-    if (valueMap.size > 0) {
-      const $ = Array.from(valueMap.keys())
-        .map((k) => {
-          const t = getArrayTypeCh(k);
-          return t + (t == A_NULL ? '' : escapeText(String(k)));
-        })
-        .join('');
-      result.push(`$${PROTOCOL_VERSION}:` + $);
-    }
-    if (dateMap.size > 0)
-      result.push(
-        `$$${PROTOCOL_VERSION}:` + (dateMin as number).toString(RADIX),
-      );
-  } else result.push('$');
+  const tokens = map.getAllStringTokens();
+  if (tokens) {
+    result.push(`$${PROTOCOL_VERSION}:` + tokens);
+  }
+  const dateToken = map.getMinimalDateToken();
+  if (dateToken) result.push(`$$${PROTOCOL_VERSION}:` + dateToken);
+
+  if (!result.length) result.push('$');
   result.push(data);
   return result;
-
-  /** Process the object of arrays to populate the maps  */
-  function createStringMap(): {
-    addKey: (key: string, value: any) => void;
-    addValue: (value: any) => void;
-    finish: () => void;
-  } {
-    const map = new Map<
-      string | boolean | null,
-      { type: string; idx: number; num: number }
-    >();
-
-    const mapAdd = (val: string | boolean | null, keyval: 'key' | 'value') => {
-      const isKey = keyval === 'key';
-      const type = val === null ? 'null' : typeof val;
-      if (
-        ['string', 'boolean', 'null'].includes(type) &&
-        (isKey || type == 'string' || /^\d+$/.test(val as string)) &&
-        (type != 'string' || (val as string).length > 2)
-      ) {
-        if (opts.insideStrings && type == 'string') {
-          const parts = (val as string).split(TOKEN_SEP);
-          for (const part of parts) {
-            let k = map.get(part);
-            if (!k) map.set(part, (k = { type, idx: map.size, num: 0 }));
-            k.num++;
-          }
-        } else {
-          let k = map.get(val);
-          if (!k) map.set(val, (k = { type, idx: map.size, num: 0 }));
-          k.num++;
-        }
-      }
-    };
-
-    const addValue = (val: any): void => {
-      if (typeof val == 'string' && ISO_DATE.test(val)) {
-        const timestamp = new Date(val).getTime();
-        if (!dateMin || (dateMin as number) > timestamp) dateMin = timestamp;
-        dateMap.set(val, timestamp);
-      } else {
-        mapAdd(val, 'value');
-      }
-    };
-    const addKey = (key: string, value: any): void => {
-      mapAdd(key, 'key');
-      addValue(value);
-    };
-
-    const finish = (): void => {
-      // Create the valueMap selecting only the most used words
-      // which compressed are smaller than the original string
-      Array.from(map.entries())
-        .map((a: any) => ((a[1].weight = a[1].num * String(a[0]).length), a))
-        .sort((a, b) => b[1].weight - a[1].weight)
-        .filter(
-          ([key, val], i) =>
-            val.weight >
-            val.num * (i.toString(RADIX).length + 1) + String(key).length + 1,
-        )
-        .map(([key]) => key)
-        .forEach((key, i) => valueMap.set(key, i.toString(RADIX)));
-
-      // Use the date map, only if there are more than one date
-      if (dateMap.size > 0) {
-        for (const k of dateMap.keys())
-          dateMap.set(
-            k,
-            ((dateMap.get(k)! as number) - (dateMin as number)).toString(RADIX),
-          );
-      }
-    };
-    return { addKey, addValue, finish };
-  }
 
   function replaceKeyValue(value: any): any {
     const type = value === null ? 'null' : typeof value;
@@ -155,51 +65,42 @@ export function compress(
       return arr;
     } else if (type == 'object') {
       const newValue: any = {};
-      for (const [key, val] of Object.entries(value)) {
-        const k = valueMap.get(key);
+      const keys = Object.keys(value);
+      for (let i = 0, len = keys.length; i < len; i++) {
+        const key = keys[i];
+        const val = value[key];
         const isPivot = key === PIVOT_KEY;
-        const newkey = isPivot
-          ? '$'
-          : k !== undefined
-            ? '§' + k
-            : escapeText(key);
+        const newkey = isPivot ? '$' : (map.getToken(key) as string); // key is string
         newValue[newkey] = replaceKeyValue(val);
       }
       return newValue;
-    } else if (
+    } else if (type == 'string') {
+      const d = map.getDateToken(value);
+      if (d !== undefined) return '§§' + d;
+    } // there's no else
+    if (
       type == 'boolean' ||
       type == 'null' ||
+      type == 'number' ||
       (type == 'string' && !opts.insideStrings)
     ) {
-      const k = valueMap.get(value);
-      if (k !== undefined) return '§' + k;
+      const token = map.getToken(value);
+      if (token !== value) return token;
     } else if (type === 'string' && opts.insideStrings) {
       if (TOKEN_SEP.test(value)) {
-        const newval = String(value).replace(TOKEN_LIKE_G, (g: string) => {
-          const k = valueMap.get(g);
-          if (k !== undefined) return '§' + k;
-          else return escapeText(g);
-        });
+        const newval = value.replace(TOKEN_LIKE_G, (g: string) =>
+          map.getToken(g),
+        );
         return newval;
       } else {
-        const k = valueMap.get(value);
-        if (k !== undefined) return '§' + k;
-        return escapeText(value);
+        return map.getToken(value);
       }
-    }
-    if (type == 'string') {
-      const d = dateMap.get(value);
-      if (d !== undefined) return '§§' + d;
     }
     return value;
   }
 }
 
-const getpivot = (
-  value: any,
-  addKey: (key: string, value: any) => void,
-  addValue: (value: any) => void,
-): any => {
+const getpivot = (value: any, map: TokenMap): any => {
   if (Array.isArray(value)) {
     if (
       value.length > 1 &&
@@ -208,31 +109,37 @@ const getpivot = (
       !Array.isArray(value[0])
     ) {
       const result: Record<string, any[]> = { [PIVOT_KEY]: 0 as any };
-      addKey(PIVOT_KEY, result[PIVOT_KEY]);
-      for (const key of Object.keys(value[0])) {
-        result[key] = value.map((item) =>
-          getpivot(item[key], addKey, addValue),
-        );
-        addKey(key, result[key]);
+      // map.addKeyValue(PIVOT_KEY, result[PIVOT_KEY]);
+      const keys = Object.keys(value[0]);
+      for (let i = 0, len = keys.length; i < len; i++) {
+        const key = keys[i];
+        result[key] = value.map((item) => getpivot(item[key], map));
+        map.addKeyValue(key, result[key]);
       }
       return result;
     } else {
       return value.map((item) => {
-        const result = getpivot(item, addKey, addValue);
-        addValue(result);
+        const result = getpivot(item, map);
+        map.addValue(result);
         return result;
       }) as any;
     }
   } else if (value instanceof Date) {
-    return value.toISOString() as any;
+    const val = value.toISOString();
+    map.addValue(val);
+    return val;
   } else if (typeof value === 'object' && value !== null) {
     const result: Record<string, any> = {};
-    for (const [key, val] of Object.entries(value)) {
-      result[key] = getpivot(val, addKey, addValue);
-      addKey(key, result[key]);
+    const keys = Object.keys(value);
+    for (let i = 0, len = keys.length; i < len; i++) {
+      const key = keys[i];
+      const val = value[key];
+      result[key] = getpivot(val, map);
+      map.addKeyValue(key, result[key]);
     }
     return result;
   }
+  map.addValue(value);
   return value;
 };
 
@@ -244,29 +151,30 @@ const shrinkAllArrays = (value: any): any => {
     return shrinkOneArray(arr);
   } else {
     const obj = {} as any;
-    for (const key in value) {
+    const keys = Object.keys(value);
+    for (let i = 0, len = keys.length; i < len; i++) {
+      const key = keys[i];
       obj[key] = shrinkAllArrays(value[key]);
     }
     return obj;
   }
 };
 
-const shrinkOneArray = <T extends string | boolean | number>(arr: T[]): T[] => {
+const shrinkOneArray = <T extends MapValueKey>(arr: T[]): T[] => {
   const result: T[] = [];
   let i = 0;
   const n = arr.length;
-  let used = false;
+  let shrinked = false;
+  let normalLen = 0;
+  let packedLen = 5; // initial "$#",
 
   while (i < n) {
-    const curr: T | string = arr[i];
+    const curr: T = arr[i];
     const currType = curr === null ? 'null' : typeof curr;
-    // Only consider strings (or numbers)
-    if (
-      currType == 'number' ||
-      currType == 'string' ||
-      currType == 'boolean' ||
-      currType == 'null'
-    ) {
+
+    // Only consider strings, numbers, boolean, or null
+    const type = MAP_VALID_TYPES[currType];
+    if (type) {
       let count = 1;
       while (i + 1 < n && arr[i + 1] === curr) {
         count++;
@@ -275,28 +183,31 @@ const shrinkOneArray = <T extends string | boolean | number>(arr: T[]): T[] => {
       // Only consider a minumum of elements than surpasses the compressed prefix size
       // otherwise it does not worth it
       const currLen = String(curr).length;
-      const type = getArrayTypeCh(curr);
-      if (
-        count * (currLen + (type == A_STR ? 3 : 1)) >=
-        9 + (type == A_BOOL ? 1 : type == A_NULL ? 0 : currLen)
-      ) {
-        let newval: any = curr;
-        if (type == A_NUM) newval = curr.toString(RADIX);
+      const currNormalLen = count * (currLen + (type == A_STR ? 3 : 1));
+      const currPackedLen =
+        6 + (type == A_BOOL ? 1 : type == A_NULL ? 0 : currLen);
+      if (currNormalLen >= currPackedLen) {
+        let newval: MapValueKey = curr;
+        if (type == A_NUM) newval = (curr as number).toString(RADIX);
         else if (type == A_BOOL) newval = curr ? '1' : '0';
         else if (type == A_NULL) newval = '';
         const topush = `${A_PREFIX}${count}${type}${newval}`;
         result.push(topush as T);
-        used = true;
+        shrinked = true;
+        normalLen += currNormalLen;
+        packedLen += currPackedLen;
       } else {
+        // It does not satisfy the shrinking condition, so copy all
         for (let i = 0; i < count; i++) result.push(curr);
       }
     } else result.push(curr);
     i++;
   }
-  if (used) result.unshift(SHRINKED_ARR_PREFIX as T);
+  if (shrinked) {
+    // Check if the shrinking worths it
+    if (normalLen <= packedLen) return arr;
+    result.unshift(SHRINKED_ARR_PREFIX as T);
+  }
 
   return result;
 };
-
-const getArrayTypeCh = (val: string | null | number | boolean): string =>
-  val === null ? A_NULL : { s: A_STR, n: A_NUM, b: A_BOOL }[(typeof val)[0]]!;

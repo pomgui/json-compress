@@ -5,16 +5,17 @@ import {
   A_NUM,
   A_PREFIX,
   A_STR,
+  PROTOCOL_VERSION,
   RADIX,
   SHRINKED_ARR_PREFIX,
   TOKEN_DEF,
   TOKEN_LIKE_G,
   TOKEN_SEP,
-} from './compress';
-import { PROTOCOL_VERSION } from './const';
+} from './const';
+import { parseTokenMap } from './tools/parseMap';
+import { unescapeText } from './tools/tools';
+import { MapValueKey } from './types';
 
-const TYPES = A_STR + A_BOOL + A_NUM + A_NULL;
-const MAP_RE = new RegExp(`([${TYPES}])([^${TYPES}]*)`, 'g');
 const VERSION_RE = new RegExp(`^\\$\\$?${PROTOCOL_VERSION}(:.+)?$`);
 
 export function decompress(value: any): any {
@@ -24,7 +25,12 @@ export function decompress(value: any): any {
 
   if (!VERSION_RE.test(value[0]))
     throw new Error(`@pomgui/json-compress: Invalid compressed version!`);
-  const map: (string | number | boolean | null)[] = getmap(value[0]);
+
+  // A map exists only if the first element is "$:xxxxx", otherwise there's no map
+  let map: MapValueKey[] = [];
+  if (value[0].startsWith(`$${PROTOCOL_VERSION}:`)) {
+    map = parseTokenMap(value[0].substring(2 + PROTOCOL_VERSION.length));
+  }
   let next = !map.length ? 0 : 1;
   const dateMin = String(value[next]).startsWith(`$$${PROTOCOL_VERSION}:`)
     ? parseInt(value[next].substring(3 + PROTOCOL_VERSION.length), RADIX)
@@ -33,27 +39,6 @@ export function decompress(value: any): any {
   const d = expandAllArrays(value[next]);
 
   return dodecompress(d);
-
-  function getmap(map: string): (string | number | boolean | null)[] {
-    // A map exists only if the first element is "$:xxxxx", otherwise there's no map
-    if (!map.startsWith(`$${PROTOCOL_VERSION}:`)) return [];
-    map = map.substring(2 + PROTOCOL_VERSION.length);
-    const result = [];
-    for (const g of Array.from(map.matchAll(MAP_RE))) {
-      result.push(
-        g[1] == A_NUM
-          ? Number(g[2])
-          : g[1] == A_BOOL
-            ? Boolean(g[2])
-            : g[1] == A_NULL
-              ? null
-              : /*g[1] == A_STR */ g[2],
-      );
-    }
-    return result.map((entry) =>
-      typeof entry === 'string' ? unescapeText(entry) : entry,
-    );
-  }
 
   function dodecompress(value: any): any {
     if (!Array.isArray(value) && typeof value === 'object' && value !== null) {
@@ -90,7 +75,7 @@ export function decompress(value: any): any {
     } else if (typeof value === 'string') value = getKey(value);
     return value;
   }
-  function getKey(key: string): string | number | boolean | null {
+  function getKey(key: string): MapValueKey {
     if (TOKEN_SEP.test(key))
       return key.replace(TOKEN_LIKE_G, (g) =>
         TOKEN_DEF.test(g)
@@ -105,10 +90,6 @@ export function decompress(value: any): any {
       return key[0] == '§'
         ? map[parseInt(key.substring(1), RADIX)]
         : unescapeText(key);
-  }
-
-  function unescapeText(value: string): string {
-    return value.indexOf('\\') < 0 ? value : value.replace(/\\([\\$§])/g, '$1');
   }
 }
 
@@ -139,14 +120,14 @@ const expandOneArray = <T = any>(arr: T[]): T[] => {
     } else {
       const [, q, t, v] = g;
       const count = parseInt(q);
-      const value: string | boolean | number | null = (() => {
+      const value: MapValueKey = (() => {
         switch (t) {
           case A_NUM:
             return parseInt(v, RADIX); // number
           case A_BOOL:
             return v == '1'; // true|false
           case A_NULL:
-            return null; // true|false
+            return null; // null
           default:
             return v; // string
         }

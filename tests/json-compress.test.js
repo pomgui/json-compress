@@ -12,6 +12,7 @@ describe('@pomgui/json-compress', () => {
     let data;
     let compressed;
     let decompressed;
+
     test.each(testData)(`$name`, (td) => {
       data = { json: td.in, len: 0 };
       data.len = save('in', data.json);
@@ -23,7 +24,7 @@ describe('@pomgui/json-compress', () => {
       decompressed = { json: jsonCompress.decompress(compressed.json), len: 0 };
       decompressed.len = save('decompressed', decompressed.json || {});
 
-      expect(data.json).toStrictEqual(decompressed.json);
+      expect(decompressed.json).toStrictEqual(data.json);
     });
   });
 
@@ -53,28 +54,26 @@ describe('@pomgui/json-compress', () => {
     });
   });
 
-  test.only('escapes control characters in JSON data', () => {
+  test('escapes control characters in JSON data', () => {
     const data = {
       $: '§',
       plain: '§0',
       dateLike: '§§abc',
-      compressedArray: ['$#', '$1svalue', '§', '\\$\\§'],
+      compressedArray: ['$1$oi\\$aqui*', '§', '\\$\\§', '$#', '$10@1'],
       nested: { $: 'literal key' },
       zero: { $: 0, value: 'ordinary object' },
     };
 
     const compressed = jsonCompress.compress(data);
     const decompressed = jsonCompress.decompress(compressed);
-    expect(decompressed).toStrictEqual(data);
+    expect(data).toStrictEqual(decompressed);
   });
 
-  //   test.only('test', async () => {
-  //     const data = await readUrl(
-  //       `https://github.com/antonmedv/json-examples/raw/refs/heads/master/data_50mb.json`,
-  //     );
-  //     const compressed = { json: jsonCompress.compress(data.json), len: 0 };
-  //     compressed.len = save('compressed', compressed.json);
-  //   });
+  test.skip('test', async () => {
+    const data = testData.find((t) => t.name == 'players/id/tournaments').in;
+    const compressed = jsonCompress.compress(data);
+    expect(data).toStrictEqual(jsonCompress.decompress(compressed));
+  });
 });
 
 function save(file, json) {
